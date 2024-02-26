@@ -3,14 +3,28 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
-	"strings"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/trace/zipkin"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
+
+type ViaCEP struct {
+	Cep         string `json:"cep"`
+	Logradouro  string `json:"logradouro"`
+	Complemento string `json:"complemento"`
+	Bairro      string `json:"bairro"`
+	Localidade  string `json:"localidade"`
+	Uf          string `json:"uf"`
+	Ibge        string `json:"ibge"`
+	Gia         string `json:"gia"`
+	Ddd         string `json:"ddd"`
+	Siafi       string `json:"siafi"`
+	Erro        bool   `json:"erro"`
+}
 
 type Input struct {
 	Cep string `json:"cep"`
@@ -33,52 +47,70 @@ func main() {
 }
 
 func handleInput(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var input Input
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	cep := input.Cep
-	if len(cep) != 8 || !isStringNumeric(cep) {
-		http.Error(w, "Invalid zipcode", http.StatusUnprocessableEntity)
-		return
-	}
-
-	// Forward the request to Service B
-	resp, err := http.Post("http://localhost:8090/temperature", "application/json", strings.NewReader(fmt.Sprintf(`{"cep": "%s"}`, cep)))
-	if err != nil {
-		log.Printf("Error forwarding request to Service B: %v\n", err)
-		http.Error(w, "Error forwarding request", http.StatusInternalServerError)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		var errResp ErrorResponse
-		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			log.Printf("Error decoding error response from Service B: %v\n", err)
-			http.Error(w, "Error decoding error response", http.StatusInternalServerError)
+	http.HandleFunc("/getTemperature", func(w http.ResponseWriter, r *http.Request) {
+		var data Input
+		err := json.NewDecoder(r.Body).Decode(&data)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("invalid request body"))
 			return
 		}
-		http.Error(w, errResp.Message, resp.StatusCode)
-		return
+		cep := data.Cep
+
+		log.Println(cep)
+
+		if len(cep) != 8 || !isStringNumeric(cep) {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			w.Write([]byte("invalid zipcode"))
+			return
+		}
+
+		viaCEP, err := fetchViaCep(cep)
+		log.Println(viaCEP)
+
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("can not found zipcode"))
+			return
+		}
+
+		if viaCEP.Erro {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("can not found zipcode"))
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(viaCEP.Localidade)
+	})
+
+	log.Println("Server listening on port :8080")
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func fetchViaCep(cep string) (*ViaCEP, error) {
+	req, err := http.Get("http://viacep.com.br/ws/" + cep + "/json/")
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request to ViaCEP API: %v", err)
+	}
+	defer req.Body.Close()
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
 
-	var successResp ValidResponse
-	if err := json.NewDecoder(resp.Body).Decode(&successResp); err != nil {
-		log.Printf("Error decoding success response from Service B: %v\n", err)
-		http.Error(w, "Error decoding success response", http.StatusInternalServerError)
-		return
+	var data ViaCEP
+	if err := json.Unmarshal(body, &data); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(successResp)
+	return &data, nil
 }
 
 func isStringNumeric(s string) bool {
