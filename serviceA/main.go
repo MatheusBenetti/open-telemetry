@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -48,6 +49,9 @@ func main() {
 
 func handleInput(w http.ResponseWriter, r *http.Request) {
 	http.HandleFunc("/getTemperature", func(w http.ResponseWriter, r *http.Request) {
+		ctx, span := otel.Tracer("ServiceA").Start(r.Context(), "handleInput")
+		defer span.End()
+
 		var data Input
 		err := json.NewDecoder(r.Body).Decode(&data)
 		if err != nil {
@@ -65,7 +69,7 @@ func handleInput(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		viaCEP, err := fetchViaCep(cep)
+		viaCEP, err := fetchViaCep(ctx, cep)
 		log.Println(viaCEP)
 
 		if err != nil {
@@ -92,8 +96,11 @@ func handleInput(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func fetchViaCep(cep string) (*ViaCEP, error) {
-	req, err := http.Get("http://viacep.com.br/ws/" + cep + "/json/")
+func fetchViaCep(ctx context.Context, cep string) (*ViaCEP, error) {
+	ctx, span := otel.Tracer("ServiceA").Start(ctx, "fetchViaCep")
+	defer span.End()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://viacep.com.br/ws/"+cep+"/json/", nil)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request to ViaCEP API: %v", err)

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -52,6 +53,9 @@ func main() {
 
 func handleTemperature(w http.ResponseWriter, r *http.Request) {
 	http.HandleFunc("/getTemperature", func(w http.ResponseWriter, r *http.Request) {
+		ctx, span := otel.Tracer("ServiceB").Start(r.Context(), "handleTemperature")
+		defer span.End()
+
 		cep := r.URL.Query().Get("cep")
 
 		if len(cep) != 8 || !isStringNumeric(cep) {
@@ -60,7 +64,7 @@ func handleTemperature(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		viaCEP, err := fetchViaCep(cep)
+		viaCEP, err := fetchViaCep(ctx, cep)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte("can not found zipcode"))
@@ -75,7 +79,7 @@ func handleTemperature(w http.ResponseWriter, r *http.Request) {
 
 		removeSpaces := strings.ReplaceAll(viaCEP.Localidade, " ", "-")
 
-		weather, err := fetchWeatherAPI(removeSpaces)
+		weather, err := fetchWeatherAPI(ctx, removeSpaces)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("error getting weather data"))
@@ -103,8 +107,11 @@ func isStringNumeric(s string) bool {
 	return true
 }
 
-func fetchViaCep(cep string) (*ViaCEP, error) {
-	req, err := http.Get("http://viacep.com.br/ws/" + cep + "/json/")
+func fetchViaCep(ctx context.Context, cep string) (*ViaCEP, error) {
+	ctx, span := otel.Tracer("ServiceB").Start(ctx, "fetchViaCep")
+	defer span.End()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://viacep.com.br/ws/"+cep+"/json/", nil)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request to ViaCEP API: %v", err)
@@ -124,8 +131,11 @@ func fetchViaCep(cep string) (*ViaCEP, error) {
 	return &data, nil
 }
 
-func fetchWeatherAPI(location string) (*Current, error) {
-	req, err := http.Get("http://api.weatherapi.com/v1/current.json?q=" + location + "&key=50dbab8a6094453b8d4214401242301")
+func fetchWeatherAPI(ctx context.Context, location string) (*Current, error) {
+	ctx, span := otel.Tracer("ServiceB").Start(ctx, "fetchWeatherAPI")
+	defer span.End()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://api.weatherapi.com/v1/current.json?q="+location+"&key=50dbab8a6094453b8d4214401242301", nil)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request to Weather API: %v", err)
