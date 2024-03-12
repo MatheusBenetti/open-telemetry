@@ -1,64 +1,55 @@
-version: '3'
+version: '3.9'
 
 services:
-  zipkin-all-in-one:
-    image: openzipkin/zipkin:latest
-    restart: always
+  zipkin_svc:
+    image: openzipkin/zipkin
+    container_name: zipkin_svc
+    environment:
+      - STORAGE_TYPE=mem
     ports:
       - "9411:9411"
+    networks:
+      - services_ntw
 
-  otel-collector:
-    image: otel/opentelemetry-collector:latest
-    restart: always
-    command: ["--config=/etc/otel-collector-config.yaml"]
+  otel_collector:
+    image: otel/opentelemetry-collector:0.95.0
+    container_name: otel_collector
+    command: [ "--config=/etc/otel-collector-config.yaml" ]
     volumes:
       - ./.docker/otel-collector-config.yaml:/etc/otel-collector-config.yaml
     ports:
-      - "1888:1888"   # pprof extension
-      - "8888:8888"   # Prometheus metrics exposed by the collector
-      - "8889:8889"   # Prometheus exporter metrics
-      - "13133:13133" # health_check extension
-      - "4317:4317"   # OTLP gRPC receiver
-      - "55679:55679" # zpages extension
-  
-  goapp:
-    container_name: goapp
+      - "4317:4317" # gRPC port
+      - "4318:4318" # HTTP port
+    depends_on:
+      - zipkin_svc
+    networks:
+      - services_ntw
+
+  service_b:
     build:
       context: .
-    environment:
-      - TITLE=Microservice Demo
-      - CONTENT=This is a demo of a microservice
-      - BACKGROUND_COLOR=green
-      - RESPONSE_TIME=1000
-      - EXTERNAL_CALL_URL=http://goapp2:8181
-      - EXTERNAL_CALL_METHOD=GET
-      - REQUEST_NAME_OTEL=microservice-demo-request
-      - OTEL_SERVICE_NAME=microservice-demo
-      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
-      - HTTP_PORT=:8080
+      dockerfile: Dockerfile-svc-b
+    image: service_b
+    container_name: service_b
+    ports:
+      - "50055"
+    networks:
+      - services_ntw
+    depends_on:
+      - otel_collector
+
+  service_a:
+    build:
+      context: .
+      dockerfile: Dockerfile-svc-a
+    image: service_a
+    container_name: service_a
     ports:
       - "8080:8080"
+    networks:
+      - services_ntw
     depends_on:
-      - zipkin-all-in-one
-      - otel-collector
+      - service_b
 
-  goapp2:
-    container_name: goapp2
-    build:
-      context: .
-    environment:
-      - TITLE=Microservice Demo 2
-      - CONTENT=This is a demo of a microservice
-      - BACKGROUND_COLOR=blue
-      - EXTERNAL_CALL_URL=http://goapp3:8282
-      - EXTERNAL_CALL_METHOD=GET
-      - RESPONSE_TIME=2000
-      - REQUEST_NAME_OTEL=microservice-demo2-request
-      - OTEL_SERVICE_NAME=microservice-demo2
-      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
-      - HTTP_PORT=:8181
-    ports:
-      - "8181:8181"
-    depends_on:
-      - zipkin-all-in-one
-      - otel-collector
+networks:
+  services_ntw:
