@@ -2,29 +2,24 @@
 
 Digite o CEP desejado para receber a temperatura do momento em graus Celsius, Fahrenheit e Kelvin
 
-## Conteúdo
-
-- [Ambiente de Desenvolvimento](#developer)
-
 ## Ambiente de Desenvolvimento
 
-Para rodar o projeto em ambiente de desenvolvimento, utilize para criar o container:
+Para rodar o projeto em ambiente de desenvolvimento, digite o seguinte código no terminal:
 ```
-docker compose up --build
+make prepare
 ```
-ou então utilize docker-compose up --build, dependendo da versão, após gerar a imagem, pode iniciar as próximas vezes com docker compose up.
+Após a execução desse comando, digite para preparar os containers:
+```
+make run
+```
+Após isso realize requisições POST no Insomnia/Postman na URL http://localhost:8080/temperature com o seguinte body, podendo alterar o CEP para o desejado:
+```
+{
+  "cep": "95670084"
+}
+```
+## Zipkin
 
-Depois para acessar o bash, abra outro terminal e digite:
-```
-docker compose exec web bash
-```
-E então rode o comando:
-```
-go run main.go
-```
-Após isso é só fazer uma requisição no terminal com:
-```
-curl http://localhost:8080/getTemperature?cep=95670084
-```
-Ou via Postman/Insomnia
+ - Para acessar o Zipkin, abra o seu navegador e digite a URL http://localhost:9411/;
+ - Clique no botão "RUN QUERY" e será possível ver os resultados.
 
