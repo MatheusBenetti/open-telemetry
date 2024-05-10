@@ -22,12 +22,12 @@ var createCepEndpoint = func(baseUrl, cep string) string {
 }
 
 type CEPFromAPI struct {
-	cnf *config.Config
+	config *config.Config
 }
 
-func NewCEPFromAPI(cnf *config.Config) *CEPFromAPI {
+func NewCEPFromAPI(config *config.Config) *CEPFromAPI {
 	return &CEPFromAPI{
-		cnf: cnf,
+		config: config,
 	}
 }
 
@@ -42,7 +42,7 @@ func (cap *CEPFromAPI) Get(ctx context.Context, cep string) (entity.Location, er
 	req, reqErr := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
-		createCepEndpoint(cap.cnf.CEP.URL, cep),
+		createCepEndpoint(cap.config.CEP.URL, cep),
 		nil,
 	)
 	if reqErr != nil {

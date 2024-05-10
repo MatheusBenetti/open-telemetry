@@ -24,12 +24,12 @@ var createWeatherEndpoint = func(baseUrl string) string {
 }
 
 type WeatherFromAPI struct {
-	cnf *config.Config
+	config *config.Config
 }
 
-func NewWeatherFromAPI(cnf *config.Config) *WeatherFromAPI {
+func NewWeatherFromAPI(config *config.Config) *WeatherFromAPI {
 	return &WeatherFromAPI{
-		cnf: cnf,
+		config: config,
 	}
 }
 
@@ -39,18 +39,18 @@ func (wap *WeatherFromAPI) Get(ctx context.Context, location string) (entity.Tem
 	_, span := tracer.Start(hCtx, "service_b:get_weather")
 	defer span.End()
 
-	u, urlErr := url.Parse(createWeatherEndpoint(wap.cnf.Temperature.URL))
+	u, urlErr := url.Parse(createWeatherEndpoint(wap.config.Temperature.URL))
 	if urlErr != nil {
 		fmt.Printf("Error parsing URL: %s\n", urlErr)
 		return entity.Temperature{}, urlErr
 	}
-	apiKey := wap.cnf.Temperature.ApiKey
+	apiKey := wap.config.Temperature.ApiKey
 	if apiKey == "" {
 		return entity.Temperature{}, entity.ErrEmptyAPIkey
 	}
 
 	q := u.Query()
-	q.Set("key", wap.cnf.Temperature.ApiKey)
+	q.Set("key", wap.config.Temperature.ApiKey)
 	q.Set("q", location)
 	q.Set("aqi", "no")
 	u.RawQuery = q.Encode()

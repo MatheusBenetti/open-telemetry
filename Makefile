@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 .PHONY: prepare
 prepare:
-	cp env.json.example env.json
+	cp env.test.json env.json
 
 run:
 	@docker compose down --rmi local
@@ -14,8 +14,8 @@ init:
 
 .PHONY: service-a/build
 service-a/build:
-	GOOS=linux CGO_ENABLED=0 go build -ldflags="-w -s" -o server ./cmd/service_a
+	GOOS=linux CGO_ENABLED=0 go build -ldflags="-w -s" -o server ./cmd/serviceA
 
 .PHONY: service-b/build
 service-b/build:
-	GOOS=linux CGO_ENABLED=0 go build -ldflags="-w -s" -o server ./cmd/service_b
+	GOOS=linux CGO_ENABLED=0 go build -ldflags="-w -s" -o server ./cmd/serviceB
