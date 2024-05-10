@@ -12,7 +12,7 @@ type Server struct {
 
 func (gr *Server) prepare() {
 	gr.mux = http.NewServeMux()
-	gr.mux.HandleFunc("POST /temperature", gr.temperature)
+	gr.mux.HandleFunc("POST /getCep", gr.temperature)
 }
 
 func (gr *Server) run() {
