@@ -12,7 +12,7 @@ Após a execução desse comando, digite para preparar os containers:
 ```
 make run
 ```
-Após isso realize requisições POST no Insomnia/Postman na URL http://localhost:8080/temperature com o seguinte body, podendo alterar o CEP para o desejado:
+Após isso realize requisições POST no Insomnia/Postman na URL http://localhost:8080/getCep com o seguinte body, podendo alterar o CEP para o desejado:
 ```
 {
   "cep": "95670084"
